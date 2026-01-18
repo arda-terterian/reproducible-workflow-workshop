@@ -1,6 +1,6 @@
 ---
 title: "Setup Check"
-author: "YOUR NAME"
+author: "arda-terterian"
 date: today
 format: html
 ---
