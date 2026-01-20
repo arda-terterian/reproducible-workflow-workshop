@@ -1,6 +1,6 @@
 ---
 title: "Data Cleaning"
-author: "YOUR NAME"
+author: "arda-terterian"
 date: today
 format: html
 ---

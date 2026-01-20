@@ -1,7 +1,7 @@
 ---
 title: "Your Manuscript Title"
 author:
-  - name: "YOUR NAME"
+  - name: "arda-terterian"
     affiliations:
       - name: Boston University School of Public Health
 ---
