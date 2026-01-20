@@ -28,6 +28,12 @@ library(here)
 
 # Load cleaned data from data-cleaning.qmd
 # TODO: Add data loading code during workshop
+
+# Load the cleaned data from Part 3
+data_clean <- readRDS(here("results", "data_clean.rds"))
+
+# Verify it loaded correctly
+dim(data_clean)
 ```
 
 ## Table 1: Participant Characteristics
@@ -40,6 +46,120 @@ library(here)
 # data_clean |>
 #   select(age, sex, education, ...) |>
 #   tbl_summary()
+```
+
+```{r}
+#| label: repetitive-regression
+#| eval: false
+
+library(broom)  # tidy() function to convert model output to data frame
+
+# Model for blood pressure
+model_bp <- data_clean |>
+  lm(BPSysAve ~ Education + Age + Gender, data = _)
+
+# tidy() converts model output to a clean data frame with columns:
+#   term, estimate, std.error, statistic, p.value, conf.low, conf.high
+# str_detect() finds rows where "term" contains "Education"
+tidy(model_bp, conf.int = TRUE) |>
+  filter(str_detect(term, "Education"))
+
+# Model for BMI (copy-paste and change outcome variable...)
+model_bmi <- data_clean |>
+  lm(BMI ~ Education + Age + Gender, data = _)
+
+tidy(model_bmi, conf.int = TRUE) |>
+  filter(str_detect(term, "Education"))
+
+
+
+#| label: define-regression-function
+
+library(broom)
+
+# Function to run education model for any outcome
+fit_education_model <- function(data, outcome_var) {
+  # as.formula() + paste() creates formula from string
+  # e.g., "BPSysAve" becomes: BPSysAve ~ Education + Age + Gender
+  formula <- as.formula(paste(outcome_var, "~ Education + Age + Gender"))
+
+  data |>
+    lm(formula, data = _) |>
+    # tidy() converts lm output to a data frame
+    tidy(conf.int = TRUE) |>
+    # Keep only Education-related coefficients
+    filter(str_detect(term, "Education")) |>
+    # Add column to track which outcome this is
+    mutate(outcome = outcome_var)
+}
+```
+
+```{r}
+#| label: use-regression-function
+
+# Now the analysis is simple and clear
+data_clean |> fit_education_model("BPSysAve")
+data_clean |> fit_education_model("BMI")
+```
+
+```{r}
+# Instead of:
+data_clean |> fit_education_model("BPSysAve")
+data_clean |> fit_education_model("BMI")
+
+# Write: map link the function and each vector/ handy for subgroup analysis- use for multiple imputation and quantitative bias analysis
+map(c("BPSysAve", "BMI"), \(y) data_clean |> fit_education_model(y))
+
+```
+
+
+```{r}
+#| label: use-map
+
+library(purrr)
+
+outcomes <- c("BPSysAve", "BMI")
+
+# map() runs the function for each element in outcomes
+# \(y) is shorthand for function(y) - an "anonymous function"
+# list_rbind() stacks the results into one data frame
+results <- map(outcomes, \(y) data_clean |> fit_education_model(y)) |>
+  list_rbind()
+
+results
+```
+
+
+```{r}
+#| label: subgroup-function
+
+# Function to run model within each level of a grouping variable
+fit_model_by_group <- function(data, group_var) {
+  data |>
+    # nest_by() splits data by group, storing each subset in a "data" column
+    # e.g., for Gender: one row for "male" with all male data,
+    #                   one row for "female" with all female data
+    nest_by({{ group_var }}) |>
+    # reframe() runs the model on each group's data and returns multiple rows
+    # (summarize() expects 1 row per group; reframe() allows many) 
+    #reframe is another way to do iteration
+    
+    reframe(
+      tidy(lm(BPSysAve ~ Education + Age, data = data), conf.int = TRUE)
+    ) |>
+    # Keep only the College Grad coefficient (vs 8th Grade reference)
+    filter(term == "EducationCollege Grad")
+}
+```
+
+```{r}
+#| label: use-subgroup-function
+
+# Stratify by Gender
+data_clean |> fit_model_by_group(Gender)
+
+# Stratify by Race — same function, different variable!
+data_clean |> fit_model_by_group(Race1)
 ```
 
 ## Figure 1: Main Result
